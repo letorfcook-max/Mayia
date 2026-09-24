@@ -1,0 +1,10 @@
+import("https://projectile.mayia.org/pull/models/v1/download/pt/x64/distribution/mayiav1.pt")
+
+from mayiav1.pt use model.bat
+import model.bat as mayia
+
+local mayia import == "v1:latest"
+import mayia as "models"
+from v1:latest import model.pt
+
+start()
