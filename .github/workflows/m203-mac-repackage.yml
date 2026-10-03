@@ -1,0 +1,97 @@
+name: Mayia M203.2 macOS native setup
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing release tag containing the Mayia mac app ZIP
+        required: true
+        default: mayia-v1
+      asset_pattern:
+        description: Existing release asset containing Mayia.app
+        required: true
+        default: Mayia-mac-app.zip
+      upload_name:
+        description: New DMG asset name
+        required: true
+        default: Mayia-macOS-arm64.dmg
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify native Apple Silicon runner
+        shell: bash
+        run: |
+          sw_vers
+          uname -m
+          test "$(uname -m)" = "arm64"
+
+      - name: Download existing Mayia.app payload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.release_tag }}
+          PATTERN: ${{ inputs.asset_pattern }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _mac_source
+          if gh release download "$TAG" --pattern "$PATTERN" --dir _mac_source; then
+            echo "Downloaded $PATTERN from $TAG"
+          else
+            echo "Release asset download failed; will also search checked-out repository."
+          fi
+          find _mac_source -maxdepth 2 -type f -print || true
+          for f in _mac_source/*.zip; do
+            [ -e "$f" ] || continue
+            mkdir -p _mac_unpacked
+            ditto -x -k "$f" _mac_unpacked
+          done
+
+      - name: Find Mayia.app
+        id: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$(find _mac_unpacked _mac_source . -type d -name 'Mayia.app' -prune 2>/dev/null | head -n 1 || true)"
+          if [ -z "$APP" ]; then
+            echo "ERROR: Could not find Mayia.app."
+            echo "Expected it inside release asset: ${{ inputs.asset_pattern }}"
+            find . -maxdepth 4 -type f | head -n 250
+            exit 1
+          fi
+          echo "Found: $APP"
+          echo "path=$APP" >> "$GITHUB_OUTPUT"
+
+      - name: Validate Mayia.app
+        shell: bash
+        run: |
+          chmod +x mac_fixkit/scripts/*.sh
+          mac_fixkit/scripts/validate_mac_release.sh "${{ steps.app.outputs.path }}"
+
+      - name: Build native Setup + stable DMG
+        shell: bash
+        run: |
+          chmod +x mac_fixkit/scripts/*.sh
+          mkdir -p _mac_output
+          mac_fixkit/scripts/package_stable_dmg.sh "${{ steps.app.outputs.path }}" "_mac_output/${{ inputs.upload_name }}"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mayia-M203.2-macOS
+          path: |
+            _mac_output/*.dmg
+            _mac_output/*.sha256
+
+      - name: Publish fixed DMG to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh release upload "${{ inputs.release_tag }}" _mac_output/* --clobber

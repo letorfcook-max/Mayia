@@ -1,0 +1,16 @@
+#!/bin/bash
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+OUT="${1:-$ROOT/dist/Mayia Setup.app}"
+SRC="$ROOT/native_setup/MayiaSetup.swift"
+PLIST="$ROOT/native_setup/Info.plist"
+rm -rf "$OUT"
+mkdir -p "$OUT/Contents/MacOS" "$OUT/Contents/Resources"
+cp "$PLIST" "$OUT/Contents/Info.plist"
+echo "Building native ARM64 Mayia Setup..."
+swiftc -O -target arm64-apple-macos13.0 -framework AppKit -framework Foundation "$SRC" -o "$OUT/Contents/MacOS/Mayia Setup"
+chmod +x "$OUT/Contents/MacOS/Mayia Setup"
+IDENTITY="${APPLE_SIGN_IDENTITY:--}"
+codesign --force --deep --options runtime --sign "$IDENTITY" "$OUT" 2>/dev/null || codesign --force --deep --sign - "$OUT"
+echo "Built: $OUT"
+file "$OUT/Contents/MacOS/Mayia Setup"
