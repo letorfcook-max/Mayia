@@ -1,0 +1,104 @@
+name: Mayia M208.1 macOS self-contained setup - artifact only
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing release tag containing the Mayia mac app ZIP
+        required: true
+        default: mayia-v1
+      asset_pattern:
+        description: Existing release asset containing Mayia.app
+        required: true
+        default: mayia-macos-arm64-app.zip
+      upload_name:
+        description: Output DMG file name
+        required: true
+        default: Mayia-macOS-arm64.dmg
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify native Apple Silicon runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          sw_vers
+          uname -m
+          test "$(uname -m)" = "arm64"
+
+      - name: Download existing Mayia.app payload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.release_tag }}
+          PATTERN: ${{ inputs.asset_pattern }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _mac_source _mac_unpacked
+          gh release download "$TAG" --pattern "$PATTERN" --dir _mac_source
+          find _mac_source -maxdepth 2 -type f -print
+          shopt -s nullglob
+          for f in _mac_source/*.zip; do
+            ditto -x -k "$f" _mac_unpacked
+          done
+
+      - name: Find Mayia.app
+        id: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$(find _mac_unpacked _mac_source . -type d -name 'Mayia.app' -prune 2>/dev/null | head -n 1 || true)"
+          if [ -z "$APP" ]; then
+            echo "ERROR: Could not find Mayia.app inside ${{ inputs.asset_pattern }}"
+            find . -maxdepth 5 -print | head -n 350
+            exit 1
+          fi
+          echo "Found: $APP"
+          echo "path=$APP" >> "$GITHUB_OUTPUT"
+
+      - name: Validate Mayia.app
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x mac_fixkit/scripts/*.sh
+          mac_fixkit/scripts/validate_mac_release.sh "${{ steps.app.outputs.path }}"
+
+      - name: Build self-contained native Setup + DMG
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x mac_fixkit/scripts/*.sh
+          mkdir -p _mac_output
+          mac_fixkit/scripts/package_stable_dmg.sh "${{ steps.app.outputs.path }}" "_mac_output/${{ inputs.upload_name }}"
+
+      - name: Regression-test self-contained installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x mac_fixkit/scripts/*.sh
+          mac_fixkit/scripts/validate_self_contained_setup.sh "_mac_output/${{ inputs.upload_name }}"
+
+      - name: Show result files
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "=== BUILT FILES ==="
+          ls -lah _mac_output
+          shasum -a 256 _mac_output/* || true
+
+      - name: Upload build artifact only
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mayia-M208.1-macOS
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            _mac_output/*.dmg
+            _mac_output/*.sha256
