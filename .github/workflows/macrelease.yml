@@ -1,0 +1,100 @@
+name: Mayia MacRelease
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_tag:
+        description: Public Mayia release containing a macOS Mayia.app ZIP
+        required: true
+        default: mayia
+      source_asset:
+        description: Exact asset name (must contain Mayia.app)
+        required: true
+        default: MAYIA-v0.2.10.zip
+      expected_sha256:
+        description: SHA256 of source asset
+        required: true
+        default: a8007334cdbf5c7abba70be3bb9d06805a8f3b8c0bf63bf982511c4e039504f8
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mayia-macrelease
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish:
+    name: Validate and package MacRelease
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - name: Checkout original Mayia repository
+        uses: actions/checkout@v4
+
+      - name: Check Apple Silicon runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = arm64
+          sw_vers
+
+      - name: Download exact release ZIP
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_TAG: ${{ inputs.source_tag }}
+          SOURCE_ASSET: ${{ inputs.source_asset }}
+          SOURCE_SHA: ${{ inputs.expected_sha256 }}
+        run: |
+          set -euo pipefail
+          mkdir -p _mac_input _mac_unpacked
+          gh release download "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "$SOURCE_ASSET" --dir _mac_input
+          test -f "_mac_input/$SOURCE_ASSET"
+          printf '%s  %s\n' "$SOURCE_SHA" "_mac_input/$SOURCE_ASSET" | shasum -a 256 -c -
+          unzip -t "_mac_input/$SOURCE_ASSET" >/dev/null
+          ditto -x -k "_mac_input/$SOURCE_ASSET" _mac_unpacked
+
+      - name: Locate a real Mac application (never repackage a Windows binary)
+        id: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t APPS < <(find _mac_unpacked -type d -name 'Mayia.app' -prune)
+          if [[ ${#APPS[@]} -ne 1 ]]; then
+            echo "::error::The ZIP must contain exactly one macOS Mayia.app; found ${#APPS[@]}. A Windows release ZIP cannot be converted into a Mac application by repackaging. Produce a native macOS build first."
+            exit 1
+          fi
+          printf 'path=%s\n' "${APPS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate and make self-contained Mac installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x mac_fixkit/scripts/*.sh
+          mac_fixkit/scripts/validate_mac_release.sh "${{ steps.app.outputs.path }}"
+          mkdir -p _mac_output
+          mac_fixkit/scripts/package_stable_dmg.sh "${{ steps.app.outputs.path }}" _mac_output/Mayia-macOS-arm64.dmg
+          mac_fixkit/scripts/validate_self_contained_setup.sh "mac_fixkit/dist/Mayia Setup.app"
+
+      - name: Upload test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MacRelease-preview
+          path: |
+            _mac_output/Mayia-macOS-arm64.dmg
+            _mac_output/Mayia-macOS-arm64.dmg.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Create or update GitHub release MacRelease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view MacRelease --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload MacRelease _mac_output/Mayia-macOS-arm64.dmg _mac_output/Mayia-macOS-arm64.dmg.sha256 --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create MacRelease _mac_output/Mayia-macOS-arm64.dmg _mac_output/Mayia-macOS-arm64.dmg.sha256 --target "$GITHUB_SHA" --title MacRelease --notes "Mayia native Apple Silicon macOS installer. Source: ${{ inputs.source_tag }}/${{ inputs.source_asset }}. Validate and test before distributing." --repo "$GITHUB_REPOSITORY"
+          fi
