@@ -60,12 +60,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -t APPS < <(find _mac_unpacked -type d -name 'Mayia.app' -prune)
-          if [[ ${#APPS[@]} -ne 1 ]]; then
-            echo "::error::The ZIP must contain exactly one macOS Mayia.app; found ${#APPS[@]}. A Windows release ZIP cannot be converted into a Mac application by repackaging. Produce a native macOS build first."
+          APP_COUNT="$(find _mac_unpacked -type d -name 'Mayia.app' -prune | wc -l | tr -d '[:space:]')"
+          if [[ "$APP_COUNT" -ne 1 ]]; then
+            echo "::error::The ZIP must contain exactly one macOS Mayia.app; found $APP_COUNT. A Windows release ZIP cannot be converted into a Mac application by repackaging. Produce a native macOS build first."
             exit 1
           fi
-          printf 'path=%s\n' "${APPS[0]}" >> "$GITHUB_OUTPUT"
+          APP="$(find _mac_unpacked -type d -name 'Mayia.app' -prune -print -quit)"
+          printf 'path=%s\n' "$APP" >> "$GITHUB_OUTPUT"
 
       - name: Validate and make self-contained Mac installer
         shell: bash
