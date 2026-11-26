@@ -1,0 +1,7 @@
+{
+  "training_examples": 50,
+  "held_out_examples": 15,
+  "correct": 15,
+  "accuracy": 1.0,
+  "note": "Small hand-authored demonstration, not a production benchmark."
+}

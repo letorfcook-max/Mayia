@@ -1,0 +1,10 @@
+const test=require('node:test');const assert=require('node:assert/strict');const s=require('../electron/services.cjs');
+test('rejects insecure remote providers',()=>assert.throws(()=>s.validateEndpoint('http://example.com/v1'),/HTTPS/));
+test('accepts localhost Ollama',()=>assert.equal(s.validateEndpoint('http://127.0.0.1:11434/v1').hostname,'127.0.0.1'));
+test('blocks protocols',()=>assert.throws(()=>s.validateEndpoint('file:///tmp'),/HTTP/));
+test('builds OpenAI compatible path',()=>assert.equal(s.endpointChat('http://localhost:11434/v1'),'http://localhost:11434/v1/chat/completions'));
+test('clamps settings',()=>assert.equal(s.safeSettings({temperature:99}).temperature,2));
+test('sanitizes messages',()=>assert.deepEqual(s.sanitizeMessages([{role:'user',content:'hi'},{role:'evil',content:'x'}]),[{role:'user',content:'hi'}]));
+test('compares versions numerically',()=>assert.equal(s.compareVersions('1.0.10','1.0.9'),1));
+test('parses provider response',()=>assert.equal(s.parseChatResponse('{"choices":[{"message":{"content":"Hello"}}]}').text,'Hello'));
+test('rejects malformed responses',()=>assert.throws(()=>s.parseChatResponse('bad'),/invalid JSON/));

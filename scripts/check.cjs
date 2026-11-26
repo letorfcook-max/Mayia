@@ -1,0 +1,1 @@
+const fs=require('node:fs'),cp=require('node:child_process');for(const f of fs.readdirSync('electron').filter(f=>f.endsWith('.cjs')))cp.execFileSync(process.execPath,['--check','electron/'+f],{stdio:'inherit'});

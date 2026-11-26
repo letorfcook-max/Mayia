@@ -1,0 +1,7 @@
+Original model integration verification
+Node: 63/63 tests passed (npm run check).
+Python: 11/11 tests passed (python -m unittest -v test_bridge test_original).
+Synthetic exact-size PyTorch state and actual forward passes: passed.
+Authenticated HTTP test using synthetic model: passed.
+Actual original checkpoint weights: unavailable; run testmodel.bat on original PC.
+Full frontend compilation / Windows and macOS native builds: not run.
