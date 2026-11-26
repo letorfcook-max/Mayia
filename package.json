@@ -1,0 +1,95 @@
+{
+  "name": "mayia-next",
+  "version": "5.0.0",
+  "private": true,
+  "description": "MAYIA ONE \u2014 local intelligence workspace source preview",
+  "main": "electron/main.cjs",
+  "author": "Mayia",
+  "license": "GPL-3.0-or-later",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "desktop": "electron .",
+    "desktop:dev": "concurrently -k \"vite --host 127.0.0.1 --strictPort\" \"wait-on http://127.0.0.1:5173 && cross-env MAYIA_DEV_URL=http://127.0.0.1:5173 electron .\"",
+    "build": "vite build",
+    "dist": "npm run build && electron-builder --publish never",
+    "dist:win": "npm run build && electron-builder --win nsis --x64 --publish never",
+    "dist:mac": "npm run build && electron-builder --mac dmg zip --x64 --arm64 --publish never",
+    "test": "node --test tests/*.test.cjs",
+    "check": "node scripts/check.cjs && npm test",
+    "api": "node electron/api.cjs",
+    "web": "node electron/api.cjs"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-markdown": "^9.0.1",
+    "remark-gfm": "^4.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "vite": "^6.0.5",
+    "wait-on": "^8.0.1"
+  },
+  "build": {
+    "appId": "ai.mayia.desktop",
+    "productName": "Mayia",
+    "asar": true,
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "assets/**/*",
+      "package.json",
+      "web/**/*"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "category": "public.app-category.productivity"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Utility"
+    },
+    "artifactName": "Mayia-${version}-${os}-${arch}.${ext}"
+  }
+}

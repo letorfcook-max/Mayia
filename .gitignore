@@ -1,0 +1,13 @@
+node_modules/
+dist/
+release/
+.env
+*.log
+.DS_Store
+
+model/__pycache__/
+*.pt
+GITHUB_FILES/
+NATIVE_BUILDS/
+
+native_model/__pycache__/

@@ -1,0 +1,4 @@
+# MAYIA model lab
+`python model/train.py` trains a multilingual Naive Bayes intent classifier and reports its score on a small held-out, hand-authored English/Czech/German set. The included JSON is a real trained classifier, not an LLM and is not used by desktop chat. Add licensed labeled examples with `--data examples.jsonl` (each line `{"label":"code","text":"..."}`).
+
+For an experimental generative model: install PyTorch from its official instructions for your device, then run `python model/train_transformer.py corpus.txt --steps 1000 --out tiny-mayia.pt`. This trains a small causal byte transformer with validation loss and writes actual weights. It is **not** an instruction-tuned assistant. No weights from this optional transformer run are bundled; no quality claims. Use Ollama or a compatible provider for capable chat. Do not load untrusted PyTorch checkpoints. Only train on data you have rights to use.

@@ -1,0 +1,12 @@
+Original model integration verification
+Node: 63/63 tests passed (npm run check).
+Python: 11/11 tests passed (python -m unittest -v test_bridge test_original).
+Synthetic exact-size PyTorch state and actual forward passes: passed.
+Authenticated HTTP test using synthetic model: passed.
+Actual original checkpoint weights: unavailable; run testmodel.bat on original PC.
+Full frontend compilation / Windows and macOS native builds: not run.
+
+Mac build repair (GitHub run 45864592792, job 140064046692):
+62/63 original tests passed on macOS; rollback history test failed.
+New alias regression reproduced before correction; local npm run check: 64/64 passed after correction.
+Native macOS build has not yet been rerun; no DMGs generated here.
